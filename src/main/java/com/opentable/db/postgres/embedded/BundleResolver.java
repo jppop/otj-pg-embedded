@@ -14,23 +14,23 @@
 
 package com.opentable.db.postgres.embedded;
 
-import java.io.File;
-import java.util.Optional;
+import java.io.IOException;
+import java.io.InputStream;
 
 /**
- * A strategy for resolving PostgreSQL binaries.
+ * A strategy for resolving PostgreSQL bundle.
  *
  * @see BundledPostgresBinaryResolver
  */
-public interface PgBinaryResolver {
+public interface BundleResolver {
 
     /**
-     * Returns the location of the Postgres binaries.
-     *
-     * @param targetPath
-     *        Optional location where Postgres has to be installed to. By default in system
-     *        temporary directory.
+     * Returns an input stream with the postgress binary for the given
+     * systen and hardware architecture.
+     * @param system a system identification (Darwin, Linux...)
+     * @param machineHardware a machine hardware architecture (x86_64...)
      * @return the binary
      */
-    File prepareBinaries(Optional<File> targetPath);
+    InputStream getPgBundle(String version, String system, String machineHardware) throws IOException;
+    
 }

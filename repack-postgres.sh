@@ -26,6 +26,8 @@ tar cJf $RSRC_DIR/postgresql-Linux-x86_64.txz \
   bin/initdb \
   bin/pg_ctl \
   bin/postgres
+
+mvn install:install-file -DgeneratePom=true -Dfile=target/generated-resources/postgresql-Linux-x86_64.txz -DgroupId=org.postgresql.server -DartifactId=postgresql -Dversion=$VERSION -Dpackaging=txz -Dclassifier=Linux-x86_64
 popd
 
 rm -fr $PACKDIR && mkdir -p $PACKDIR
@@ -43,6 +45,9 @@ tar cJf $RSRC_DIR/postgresql-Darwin-x86_64.txz \
   bin/initdb \
   bin/pg_ctl \
   bin/postgres
+
+mvn install:install-file -DgeneratePom=true -Dfile=target/generated-resources/postgresql-Darwin-x86_64.txz -DgroupId=org.postgresql.server -DartifactId=postgresql -Dversion=$VERSION -Dpackaging=txz -Dclassifier=Darwin-x86_64
+
 popd
 
 rm -fr $PACKDIR && mkdir -p $PACKDIR
@@ -60,6 +65,8 @@ tar cJf $RSRC_DIR/postgresql-Windows-x86_64.txz \
   bin/pg_ctl.exe \
   bin/postgres.exe \
   bin/*.dll
+
+mvn install:install-file -DgeneratePom=true -Dfile=target/generated-resources/postgresql-Windows-x86_64.txz -DgroupId=org.postgresql.server -DartifactId=postgresql -Dversion=$VERSION -Dpackaging=txz -Dclassifier=Windows-x86_64
 popd
 
 rm -rf $PACKDIR
