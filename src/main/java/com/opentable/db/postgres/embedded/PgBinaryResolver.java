@@ -14,8 +14,10 @@
 
 package com.opentable.db.postgres.embedded;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Optional;
 
 /**
  * A strategy for resolving PostgreSQL binaries.
@@ -32,4 +34,6 @@ public interface PgBinaryResolver {
      * @return the binary
      */
     InputStream getPgBinary(String system, String machineHardware) throws IOException;
+
+	File prepareBinaries(String system, String machineHardware, Optional<String> targetPath);
 }

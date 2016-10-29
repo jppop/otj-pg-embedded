@@ -37,28 +37,9 @@
   <properties>
     <project.build.targetJdk>1.8</project.build.targetJdk>
     <basepom.test.timeout>1800</basepom.test.timeout>
+    <postgresql.version>9.6.0-1</postgresql.version>
+    <postgresql.plateform>Darwin-x86_64</postgresql.plateform>
   </properties>
-
-  <build>
-    <plugins>
-      <plugin>
-        <groupId>org.codehaus.mojo</groupId>
-        <artifactId>exec-maven-plugin</artifactId>
-        <version>1.3.2</version>
-        <executions>
-          <execution>
-            <phase>generate-resources</phase>
-            <goals>
-              <goal>exec</goal>
-            </goals>
-          </execution>
-        </executions>
-        <configuration>
-          <executable>./repack-postgres.sh</executable>
-        </configuration>
-      </plugin>
-    </plugins>
-  </build>
 
   <dependencies>
     <dependency>
@@ -140,6 +121,14 @@
       <groupId>org.mockito</groupId>
       <artifactId>mockito-core</artifactId>
       <scope>test</scope>
+    </dependency>
+    <dependency>
+    	<groupId>com.edf.gipsi.nomade</groupId>
+    	<artifactId>postgresql</artifactId>
+    	<version>${postgresql.version}</version>
+    	<type>tar</type>
+    	<classifier>${postgresql.plateform}</classifier>
+    	<scope>test</scope>
     </dependency>
   </dependencies>
 </project>
