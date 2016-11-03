@@ -21,19 +21,17 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.nio.channels.FileLock;
 import java.nio.file.FileSystems;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.security.DigestInputStream;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
 import java.util.Optional;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
-import org.apache.commons.codec.binary.Hex;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
 import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.io.IOUtils;
@@ -48,20 +46,43 @@ import com.google.common.base.Verify;
 /**
  * Resolves pre-bundled binaries from within the JAR file.
  */
-final class BundledPostgresBinaryResolver implements PgBinaryResolver, BundleResolver {
+public final class BundledPostgresBinaryResolver implements PgBinaryResolver, BundleResolver {
 
     private static final Logger LOG = LoggerFactory.getLogger(BundledPostgresBinaryResolver.class);
 
     private static final Lock PREPARE_BINARIES_LOCK = new ReentrantLock();
     private static final String LOCK_FILE_NAME = "epg-lock";
     private static final String TMP_DIR_LOC = System.getProperty("java.io.tmpdir");
-    private static final String PG_VERSION = System.getProperty("postgresql.version", "last");
+    private static final String PG_VERSION = System.getProperty("postgresql.version", "9.6.0-1");
     private static final File TMP_DIR = new File(TMP_DIR_LOC, "embedded-pg");
 
+    private final String pgVersion;
+
+    public BundledPostgresBinaryResolver() {
+        this(PG_VERSION);
+    }
+
+    public BundledPostgresBinaryResolver(String version) {
+        this.pgVersion = version;
+    }
+
     @Override
-    public InputStream getPgBundle(String version, String system, String machineHardware) {
-        return EmbeddedPostgres.class
-                .getResourceAsStream(format("/postgresql-%s-%s-%s.txz", version, system, machineHardware));
+    public File getPgBundle(String version, String system, String machineHardware) {
+        URL resource = EmbeddedPostgres.class
+                .getResource(format("/postgresql-%s-%s-%s.txz", version, system, machineHardware));
+        if (resource == null) {
+            return null;
+        }
+        else {
+            File f;
+            try {
+                f = new File(resource.toURI());
+            }
+            catch (URISyntaxException e) {
+                f = new File(resource.getPath());
+            }
+            return f;
+        }
     }
 
     @Override
@@ -76,84 +97,64 @@ final class BundledPostgresBinaryResolver implements PgBinaryResolver, BundleRes
 
             LOG.info("Detected a {} {} system", system, machineHardware);
             File pgDir;
-            File pgTbz;
-            final InputStream pgBinary;
-            try {
-                pgTbz = File.createTempFile("pgpg", "pgpg");
-                pgBinary = getPgBundle(PG_VERSION, system, machineHardware);
-            }
-            catch (final IOException e) {
-                throw new ExceptionInInitializerError(e);
-            }
+            final File pgBundle = getPgBundle(this.pgVersion, system, machineHardware);
 
-            if (pgBinary == null) {
+            if (pgBundle == null) {
                 throw new IllegalStateException(
                         "No Postgres binary found for " + system + " / " + machineHardware);
             }
 
-            try (final DigestInputStream pgArchiveData =
-                    new DigestInputStream(pgBinary, MessageDigest.getInstance("MD5"));
-                    final FileOutputStream os = new FileOutputStream(pgTbz)) {
-                IOUtils.copy(pgArchiveData, os);
-                pgArchiveData.close();
-                os.close();
+            if (targetPath.isPresent()) {
+                pgDir = targetPath.get();
+            }
+            else {
+                pgDir = new File(TMP_DIR, String.format("PG-%s", pgVersion));
+            }
 
-                if (targetPath.isPresent()) {
-                    pgDir = targetPath.get();
-                }
-                else {
-                    String pgDigest =
-                            Hex.encodeHexString(pgArchiveData.getMessageDigest().digest());
-                    pgDir = new File(TMP_DIR, String.format("PG-%s", pgDigest));
-                }
+            mkdirs(pgDir);
+            final File unpackLockFile = new File(pgDir, LOCK_FILE_NAME);
+            final File pgDirExists = new File(pgDir, ".exists");
 
-                mkdirs(pgDir);
-                final File unpackLockFile = new File(pgDir, LOCK_FILE_NAME);
-                final File pgDirExists = new File(pgDir, ".exists");
-
-                if (!pgDirExists.exists()) {
-                    try (final FileOutputStream lockStream = new FileOutputStream(unpackLockFile);
-                            final FileLock unpackLock = lockStream.getChannel().tryLock()) {
-                        if (unpackLock != null) {
-                            try {
-                                Preconditions.checkState(!pgDirExists.exists(),
-                                        "unpack lock acquired but .exists file is present.");
-                                LOG.info("Extracting Postgres...");
-                                extractTxz(pgTbz.getPath(), pgDir.getPath());
-                                Verify.verify(pgDirExists.createNewFile(),
-                                        "couldn't make .exists file");
-                            }
-                            catch (Exception e) {
-                                LOG.error("while unpacking Postgres", e);
-                            }
+            if (!pgDirExists.exists()) {
+                try (final FileOutputStream lockStream = new FileOutputStream(unpackLockFile);
+                        final FileLock unpackLock = lockStream.getChannel().tryLock()) {
+                    if (unpackLock != null) {
+                        try {
+                            Preconditions.checkState(!pgDirExists.exists(),
+                                    "unpack lock acquired but .exists file is present.");
+                            LOG.info("Extracting Postgres...");
+                            extractTxz(pgBundle.getPath(), pgDir.getPath());
+                            Verify.verify(pgDirExists.createNewFile(),
+                                    "couldn't make .exists file");
                         }
-                        else {
-                            // the other guy is unpacking for us.
-                            int maxAttempts = 60;
-                            while (!pgDirExists.exists() && --maxAttempts > 0) {
-                                Thread.sleep(1000L);
-                            }
-                            Verify.verify(pgDirExists.exists(),
-                                    "Waited 60 seconds for postgres to be unpacked but it never finished!");
+                        catch (Exception e) {
+                            LOG.error("while unpacking Postgres", e);
+                            throw e;
                         }
                     }
-                    finally {
-                        if (unpackLockFile.exists()) {
-                            Verify.verify(unpackLockFile.delete(), "could not remove lock file %s",
-                                    unpackLockFile.getAbsolutePath());
+                    else {
+                        // the other guy is unpacking for us.
+                        int maxAttempts = 60;
+                        while (!pgDirExists.exists() && --maxAttempts > 0) {
+                            Thread.sleep(1000L);
                         }
+                        Verify.verify(pgDirExists.exists(),
+                                "Waited 60 seconds for postgres to be unpacked but it never finished!");
                     }
                 }
-            }
-            catch (final IOException | NoSuchAlgorithmException e) {
-                throw new ExceptionInInitializerError(e);
-            }
-            catch (final InterruptedException ie) {
-                Thread.currentThread().interrupt();
-                throw new ExceptionInInitializerError(ie);
-            }
-            finally {
-                Verify.verify(pgTbz.delete(), "could not delete %s", pgTbz);
+                catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new ExceptionInInitializerError(ie);
+                }
+                catch (IOException e) {
+                    throw new ExceptionInInitializerError(e);
+                }
+                finally {
+                    if (unpackLockFile.exists()) {
+                        Verify.verify(unpackLockFile.delete(), "could not remove lock file %s",
+                                unpackLockFile.getAbsolutePath());
+                    }
+                }
             }
             LOG.info("Postgres binaries at {}", pgDir);
             return pgDir;

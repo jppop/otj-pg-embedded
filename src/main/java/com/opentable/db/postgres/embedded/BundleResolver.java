@@ -14,8 +14,8 @@
 
 package com.opentable.db.postgres.embedded;
 
+import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 
 /**
  * A strategy for resolving PostgreSQL bundle.
@@ -31,6 +31,5 @@ public interface BundleResolver {
      * @param machineHardware a machine hardware architecture (x86_64...)
      * @return the binary
      */
-    InputStream getPgBundle(String version, String system, String machineHardware) throws IOException;
-    
+    File getPgBundle(String version, String system, String machineHardware) throws IOException;
 }

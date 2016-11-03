@@ -58,6 +58,7 @@ import com.google.common.collect.Maps;
 import com.google.common.io.Closeables;
 
 public class EmbeddedPostgres implements Closeable {
+    private static final String POSTGRES_DB = "postgres";
     private static final Logger LOG = LoggerFactory.getLogger(EmbeddedPostgres.class);
     private static final String JDBC_FORMAT = "jdbc:postgresql://localhost:%s/%s?user=%s";
 
@@ -118,11 +119,11 @@ public class EmbeddedPostgres implements Closeable {
     }
 
     public DataSource getTemplateDatabase() {
-        return getDatabase("postgres", "template1");
+        return getDatabase(PG_SUPERUSER, "template1");
     }
 
     public DataSource getPostgresDatabase() {
-        return getDatabase("postgres", "postgres");
+        return getDatabase(PG_SUPERUSER, POSTGRES_DB);
     }
 
     public DataSource getDatabase(String userName, String dbName) {
@@ -136,6 +137,10 @@ public class EmbeddedPostgres implements Closeable {
 
     public String getJdbcUrl(String userName, String dbName) {
         return String.format(JDBC_FORMAT, port, dbName, userName);
+    }
+
+    public String getJdbcUrl() {
+        return String.format(JDBC_FORMAT, port, POSTGRES_DB, PG_SUPERUSER);
     }
 
     public int getPort() {
@@ -368,7 +373,7 @@ public class EmbeddedPostgres implements Closeable {
             this.parentDirectory = new File(path);
             return this;
         }
-        
+
         public Builder setCleanDataDirectory(boolean cleanDataDirectory) {
             builderCleanDataDirectory = cleanDataDirectory;
             return this;
