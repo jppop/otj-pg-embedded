@@ -1,60 +1,14 @@
-OpenTable Embedded PostgreSQL Component
+Fork work
 =======================================
 
-Allows embedding PostgreSQL into Java application code with
-no external dependencies.  Excellent for allowing you to unit
-test with a "real" Postgres without requiring end users to install
-and set up a database cluster.
+Forked work from [opentable/otj-pg-embedded](https://github.com/opentable/otj-pg-embedded)
 
-[![Build Status](https://travis-ci.org/opentable/otj-pg-embedded.svg)](https://travis-ci.org/opentable/otj-pg-embedded)
+The Open Table project purpose is *to allow developers to unit test with a real PostgreSQL without requiring end users to install and set up a database cluster*.
 
-## Basic Usage
+This project allows you to embed PostgreSQL in a Java application.
 
-In your JUnit test just add:  
-```java
-@Rule
-public EmbeddedPostgreSQLRule pg = new EmbeddedPostgreSQLRule();
-```
-
-This simply has JUnit manage an instance of EmbeddedPostgreSQLRule (start, stop). You can then use this to get a DataSource with: `pg.getEmbeddedPostgreSQL().getPostgresDatabase();`  
-
-Additionally you may use the [`EmbeddedPostgres`](src/main/java/com/opentable/db/postgres/embedded/EmbeddedPostgres.java) class directly by manually starting and stopping the instance; see [`EmbeddedPostgresTest`](src/test/java/com/opentable/db/postgres/embedded/EmbeddedPostgresTest.java) for an example.
-
-## Flyway Migrator
-
-You can easily integrate Flyway database schema migration:
-
-```java
-@Rule
-public PreparedDbRule db =
-    EmbeddedPostgresRules.preparedDatabase(
-        FlywayPreparer.forClasspathLocation("db/my-db-schema"));
-```
-
-This will create an independent database for every test with the given schema loaded from the classpath.
-Database templates are used so the time cost is relatively small, given the superior isolation truly
-independent databases gives you.
-
-## Postgres version
-
-The JAR file contains bundled version of Postgres. You can pass different Postgres version by implementing [`PgBinaryResolver`](src/main/java/com/opentable/db/postgres/embedded/PgBinaryResolver.java).
-
-Example:
-```java
-class ClasspathBinaryResolver implements PgBinaryResolver {
-    public InputStream getPgBinary(String system, String machineHardware) throws IOException {
-        ClassPathResource resource = new ClassPathResource(format("pgsql/postgresql-%s-%s.tbz", system, machineHardware));
-        return resource.getInputStream();
-    }
-}
-
-EmbeddedPostgreSQL
-            .builder()
-            .setPgBinaryResolver(new ClasspathBinaryResolver())
-            .start();
-
-```
-
-
-----
-Copyright (C) 2016 OpenTable, Inc
+The main differences are:
+- **Postgres is a dependency**  
+ Declaring Postgres as a dependency allows you a include only the targeted plateform (Windows, Linux or OS X).
+- **Work with an already extracted Postgres server**  
+ When you package a Java application (a desktop application in our case), you can choose to unpack Postgres during the installation avoiding to include the postgres as a bundle extracted when users run the application for the first time.
